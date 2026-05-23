@@ -7,18 +7,14 @@ const register = async (req, res) => {
 };
 
 const login = async (req, res) => {
-  const { user, accessToken, refreshToken } = await authService.login(
-    req.body,
-    req.ip,
-    req.get("User-Agent"),
-  );
+  // ✅ removed req.ip and req.get("User-Agent") — not in schema
+  const { user, accessToken, refreshToken } = await authService.login(req.body);
 
-  // Set refresh token as httpOnly cookie
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 
   sendSuccess(res, { user, accessToken }, "Login successful");

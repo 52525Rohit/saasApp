@@ -2,24 +2,31 @@ import { create } from "zustand";
 import axios from "axios";
 import toast from "react-hot-toast";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+const API_URL = "http://localhost:5000/api/v1";
+
+axios.defaults.withCredentials = true;
 
 const useAuthStore = create((set, get) => ({
   user: null,
   isLoading: false,
   isAuthenticated: false,
+  isInitialized: false, // ✅ prevents redirect before init completes
 
-  // Initialize auth state from localStorage
   init: () => {
     const token = localStorage.getItem("accessToken");
     const user = localStorage.getItem("user");
     if (token && user) {
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      set({ user: JSON.parse(user), isAuthenticated: true });
+      set({
+        user: JSON.parse(user),
+        isAuthenticated: true,
+        isInitialized: true,
+      });
+    } else {
+      set({ isInitialized: true }); // ✅ mark done even if no session
     }
   },
 
-  // Login
   login: async (email, password) => {
     set({ isLoading: true });
     try {
@@ -27,10 +34,10 @@ const useAuthStore = create((set, get) => ({
         email,
         password,
       });
-      const { user, accessToken, refreshToken } = response.data.data;
+
+      const { user, accessToken } = response.data.data;
 
       localStorage.setItem("accessToken", accessToken);
-      localStorage.setItem("refreshToken", refreshToken);
       localStorage.setItem("user", JSON.stringify(user));
 
       axios.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
@@ -44,7 +51,6 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  // Register
   register: async (userData) => {
     set({ isLoading: true });
     try {
@@ -54,21 +60,39 @@ const useAuthStore = create((set, get) => ({
     } catch (error) {
       set({ isLoading: false });
       const message = error.response?.data?.message || "Registration failed";
-      return { success: false, message };
+      const errors = error.response?.data?.errors || []; // ✅ capture validation errors
+      return { success: false, message, errors };
     }
   },
 
-  // Logout
-  logout: () => {
+  logout: async () => {
+    try {
+      await axios.post(`${API_URL}/auth/logout`);
+    } catch (_) {}
+
     localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
     delete axios.defaults.headers.common["Authorization"];
+
     set({ user: null, isAuthenticated: false });
     toast.success("Logged out successfully");
   },
 
-  // Get current user
+  refreshAccessToken: async () => {
+    try {
+      const response = await axios.post(`${API_URL}/auth/refresh`);
+      const { accessToken } = response.data.data;
+
+      localStorage.setItem("accessToken", accessToken);
+      axios.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+
+      return accessToken;
+    } catch {
+      get().logout();
+      return null;
+    }
+  },
+
   fetchUser: async () => {
     try {
       const response = await axios.get(`${API_URL}/auth/me`);
@@ -82,7 +106,6 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  // Update user
   updateUser: async (userData) => {
     set({ isLoading: true });
     try {
@@ -100,5 +123,25 @@ const useAuthStore = create((set, get) => ({
     }
   },
 }));
+
+axios.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const original = error.config;
+
+    if (error.response?.status === 401 && !original._retry) {
+      original._retry = true;
+
+      const newToken = await useAuthStore.getState().refreshAccessToken();
+
+      if (newToken) {
+        original.headers["Authorization"] = `Bearer ${newToken}`;
+        return axios(original);
+      }
+    }
+
+    return Promise.reject(error);
+  },
+);
 
 export default useAuthStore;

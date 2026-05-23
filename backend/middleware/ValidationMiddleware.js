@@ -14,14 +14,13 @@ const validate = (req, res, next) => {
 
 // ─── Auth validators ─────────────────────────────────────────────────────────
 const registerRules = [
+  body("name").trim().notEmpty().withMessage("Name is required"), // ✅ was firstName/lastName
   body("email").isEmail().normalizeEmail().withMessage("Valid email required"),
   body("password")
-    .isLength({ min: 8 })
-    .withMessage("Password min 8 characters")
+    .isLength({ min: 6 })
+    .withMessage("Password min 6 characters")
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage("Password must contain uppercase, lowercase, and a number"),
-  body("firstName").trim().notEmpty().withMessage("First name required"),
-  body("lastName").trim().notEmpty().withMessage("Last name required"),
 ];
 
 const loginRules = [
@@ -36,8 +35,8 @@ const forgotPasswordRules = [
 const resetPasswordRules = [
   body("token").notEmpty().withMessage("Token required"),
   body("password")
-    .isLength({ min: 8 })
-    .withMessage("Password min 8 characters")
+    .isLength({ min: 6 })
+    .withMessage("Password min 6 characters")
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage("Password must contain uppercase, lowercase, and a number"),
 ];
@@ -45,15 +44,14 @@ const resetPasswordRules = [
 const changePasswordRules = [
   body("currentPassword").notEmpty().withMessage("Current password required"),
   body("newPassword")
-    .isLength({ min: 8 })
-    .withMessage("Password min 8 characters")
+    .isLength({ min: 6 })
+    .withMessage("Password min 6 characters")
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage("Password must contain uppercase, lowercase, and a number"),
 ];
 
 const updateProfileRules = [
-  body("firstName").optional().trim().isLength({ min: 1, max: 50 }),
-  body("lastName").optional().trim().isLength({ min: 1, max: 50 }),
+  body("name").optional().trim().isLength({ min: 1, max: 100 }), // ✅ was firstName/lastName
 ];
 
 module.exports = {

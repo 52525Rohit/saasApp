@@ -24,11 +24,10 @@ const authenticate = async (req, res, next) => {
       select: {
         id: true,
         email: true,
+        name: true, // ✅ was firstName/lastName
         role: true,
-        firstName: true,
-        lastName: true,
         avatar: true,
-        isEmailVerified: true,
+        emailVerified: true, // ✅ was isEmailVerified
         isActive: true,
       },
     });
@@ -65,7 +64,8 @@ const requireManager = authorize("MANAGER");
 
 // ─── Require Email Verified ──────────────────────────────────────────────────
 const requireEmailVerified = (req, res, next) => {
-  if (!req.user?.isEmailVerified) {
+  if (!req.user?.emailVerified) {
+    // ✅ was isEmailVerified
     return next(new AppError("Please verify your email first", 403));
   }
   next();

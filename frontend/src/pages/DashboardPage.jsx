@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   User,
   Settings,
@@ -10,26 +10,19 @@ import {
 import useAuthStore from "../context/authStore";
 
 export default function DashboardPage() {
-  const { user, fetchUser } = useAuthStore();
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    activeSubscriptions: 0,
-    revenue: 0,
-  });
+  const { user } = useAuthStore(); // ✅ just use user directly, no fetchUser
 
-  useEffect(() => {
-    fetchUser();
-    // Mock stats - in real app, fetch from API
-    setStats({
-      totalUsers: 1250,
-      activeSubscriptions: 890,
-      revenue: 45230,
-    });
-  }, [fetchUser]);
+  const [stats] = useState({
+    totalUsers: 1250,
+    activeSubscriptions: 890,
+    revenue: 45230,
+  });
 
   if (!user) {
     return (
-      <div className="flex justify-center items-center h-64">Loading...</div>
+      <div className="flex justify-center items-center h-64">
+        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
     );
   }
 
@@ -46,10 +39,8 @@ export default function DashboardPage() {
               Here's what's happening with your account today.
             </p>
           </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <User className="w-6 h-6 text-blue-600" />
-            </div>
+          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+            <User className="w-6 h-6 text-blue-600" />
           </div>
         </div>
       </div>
@@ -111,17 +102,14 @@ export default function DashboardPage() {
             <Settings className="w-5 h-5 text-gray-600 mr-3" />
             <span className="text-sm font-medium text-gray-900">Settings</span>
           </button>
-
           <button className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
             <CreditCard className="w-5 h-5 text-gray-600 mr-3" />
             <span className="text-sm font-medium text-gray-900">Billing</span>
           </button>
-
           <button className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
             <Users className="w-5 h-5 text-gray-600 mr-3" />
             <span className="text-sm font-medium text-gray-900">Team</span>
           </button>
-
           <button className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
             <Zap className="w-5 h-5 text-gray-600 mr-3" />
             <span className="text-sm font-medium text-gray-900">Analytics</span>
@@ -144,7 +132,6 @@ export default function DashboardPage() {
               <p className="text-xs text-gray-500">2 hours ago</p>
             </div>
           </div>
-
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
               <CreditCard className="w-4 h-4 text-green-600" />
@@ -156,7 +143,6 @@ export default function DashboardPage() {
               <p className="text-xs text-gray-500">4 hours ago</p>
             </div>
           </div>
-
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
               <Settings className="w-4 h-4 text-purple-600" />

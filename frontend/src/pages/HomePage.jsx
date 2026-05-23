@@ -1,12 +1,12 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Zap, Shield, Users, CreditCard } from "lucide-react";
+import { Zap, Shield, Users } from "lucide-react";
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pt-6">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-20">
+      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-20 rounded-xl">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-5xl font-bold mb-6">Welcome to SaaS App</h1>
           <p className="text-xl mb-8 max-w-2xl mx-auto">

@@ -18,34 +18,33 @@ const logger = require("../../Config/logger");
 // ─────────────────────────────────────────────
 // REGISTER
 // ─────────────────────────────────────────────
-const register = async ({ email, password }) => {
+const register = async ({ name, email, password }) => {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw new AppError("Email already in use", 409);
 
   const hashed = await bcrypt.hash(password, config.security.bcryptRounds);
 
-  // 1. Create user
   const user = await prisma.user.create({
     data: {
+      name: name || email.split("@")[0],
       email,
       passwordHash: hashed,
     },
     select: {
       id: true,
       email: true,
+      name: true,
       createdAt: true,
     },
   });
 
-  // 2. Create default organization
   const org = await prisma.organization.create({
     data: {
-      name: `${email.split("@")[0]}'s Workspace`,
+      name: `${name || email.split("@")[0]}'s Workspace`,
       slug: `${email.split("@")[0]}-${Date.now()}`,
     },
   });
 
-  // 3. Create membership (OWNER)
   await prisma.membership.create({
     data: {
       userId: user.id,
@@ -54,7 +53,6 @@ const register = async ({ email, password }) => {
     },
   });
 
-  // 4. Email verification token
   const token = crypto.randomBytes(32).toString("hex");
 
   await prisma.emailVerification.create({
@@ -65,7 +63,7 @@ const register = async ({ email, password }) => {
     },
   });
 
-  sendVerificationEmail(user.email, "User", token).catch((e) =>
+  sendVerificationEmail(user.email, name || "User", token).catch((e) =>
     logger.error("Email error:", e),
   );
 
@@ -75,12 +73,13 @@ const register = async ({ email, password }) => {
 // ─────────────────────────────────────────────
 // LOGIN
 // ─────────────────────────────────────────────
-const login = async ({ email, password }, ipAddress, userAgent) => {
+const login = async ({ email, password }) => {
   const user = await prisma.user.findUnique({
     where: { email },
     select: {
       id: true,
       email: true,
+      name: true,
       passwordHash: true,
       memberships: true,
     },
@@ -94,13 +93,12 @@ const login = async ({ email, password }, ipAddress, userAgent) => {
   const accessToken = generateAccessToken(user.id, user.email);
   const refreshToken = generateRefreshToken(user.id, user.email);
 
+  // ✅ no ipAddress/userAgent — not in schema
   await prisma.refreshToken.create({
     data: {
       userId: user.id,
       token: refreshToken,
       expiresAt: getTokenExpiry(config.jwt.refreshExpiresIn),
-      ipAddress,
-      userAgent,
     },
   });
 
@@ -210,7 +208,7 @@ const forgotPassword = async (email) => {
     },
   });
 
-  await sendPasswordResetEmail(user.email, "User", token);
+  await sendPasswordResetEmail(user.email, user.name || "User", token);
 };
 
 // ─────────────────────────────────────────────
@@ -268,7 +266,6 @@ const changePassword = async (userId, currentPassword, newPassword) => {
   });
 };
 
-// ─────────────────────────────────────────────
 module.exports = {
   register,
   login,

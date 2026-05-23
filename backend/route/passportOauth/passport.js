@@ -5,7 +5,9 @@ const { prisma } = require("../../Config/database");
 const config = require("../../Config/index");
 const logger = require("../../Config/logger");
 
-// ─── Google OAuth ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// GOOGLE STRATEGY
+// ─────────────────────────────────────────────
 if (config.oauth.google.clientId && config.oauth.google.clientSecret) {
   passport.use(
     new GoogleStrategy(
@@ -22,54 +24,30 @@ if (config.oauth.google.clientId && config.oauth.google.clientSecret) {
           let user = await prisma.user.findUnique({ where: { email } });
 
           if (!user) {
+            // ✅ only use fields that exist in your schema
             user = await prisma.user.create({
               data: {
                 email,
-                firstName: profile.name?.givenName || "User",
-                lastName: profile.name?.familyName || "",
+                name: profile.displayName || profile.name?.givenName || "User",
                 avatar: profile.photos?.[0]?.value,
-                isEmailVerified: true,
-                oauthAccounts: {
-                  create: {
-                    provider: "GOOGLE",
-                    providerId: profile.id,
-                    accessToken,
-                  },
-                },
+                emailVerified: true,
               },
             });
 
-            // Assign free plan
-            const freePlan = await prisma.plan.findUnique({
-              where: { type: "FREE" },
+            // create default org for new oauth user
+            const org = await prisma.organization.create({
+              data: {
+                name: `${email.split("@")[0]}'s Workspace`,
+                slug: `${email.split("@")[0]}-${Date.now()}`,
+              },
             });
-            if (freePlan) {
-              await prisma.subscription.create({
-                data: {
-                  userId: user.id,
-                  planId: freePlan.id,
-                  status: "ACTIVE",
-                  currentPeriodStart: new Date(),
-                  currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
-                },
-              });
-            }
-          } else {
-            // Upsert OAuth account
-            await prisma.oAuthAccount.upsert({
-              where: {
-                provider_providerId: {
-                  provider: "GOOGLE",
-                  providerId: profile.id,
-                },
-              },
-              create: {
+
+            await prisma.membership.create({
+              data: {
                 userId: user.id,
-                provider: "GOOGLE",
-                providerId: profile.id,
-                accessToken,
+                organizationId: org.id,
+                role: "OWNER",
               },
-              update: { accessToken },
             });
           }
 
@@ -81,13 +59,11 @@ if (config.oauth.google.clientId && config.oauth.google.clientSecret) {
       },
     ),
   );
-} else {
-  logger.warn(
-    "Google OAuth is disabled because GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is not set.",
-  );
 }
 
-// ─── GitHub OAuth ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// GITHUB STRATEGY
+// ─────────────────────────────────────────────
 if (config.oauth.github.clientId && config.oauth.github.clientSecret) {
   passport.use(
     new GitHubStrategy(
@@ -98,69 +74,37 @@ if (config.oauth.github.clientId && config.oauth.github.clientSecret) {
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
-          const email = profile.emails?.[0]?.value;
-          if (!email)
-            return done(
-              new Error(
-                "No email from GitHub. Enable email visibility in GitHub settings.",
-              ),
-              null,
-            );
+          const email =
+            profile.emails?.[0]?.value ||
+            profile._json?.email ||
+            `${profile.username}@github.local`;
 
           let user = await prisma.user.findUnique({ where: { email } });
 
           if (!user) {
-            const nameParts = (
-              profile.displayName ||
-              profile.username ||
-              "User"
-            ).split(" ");
+            // ✅ only use fields that exist in your schema
             user = await prisma.user.create({
               data: {
                 email,
-                firstName: nameParts[0] || "User",
-                lastName: nameParts.slice(1).join(" ") || "",
+                name: profile.displayName || profile.username || "User",
                 avatar: profile.photos?.[0]?.value,
-                isEmailVerified: true,
-                oauthAccounts: {
-                  create: {
-                    provider: "GITHUB",
-                    providerId: String(profile.id),
-                    accessToken,
-                  },
-                },
+                emailVerified: true,
               },
             });
 
-            const freePlan = await prisma.plan.findUnique({
-              where: { type: "FREE" },
+            const org = await prisma.organization.create({
+              data: {
+                name: `${email.split("@")[0]}'s Workspace`,
+                slug: `${email.split("@")[0]}-${Date.now()}`,
+              },
             });
-            if (freePlan) {
-              await prisma.subscription.create({
-                data: {
-                  userId: user.id,
-                  planId: freePlan.id,
-                  status: "ACTIVE",
-                  currentPeriodStart: new Date(),
-                  currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
-                },
-              });
-            }
-          } else {
-            await prisma.oAuthAccount.upsert({
-              where: {
-                provider_providerId: {
-                  provider: "GITHUB",
-                  providerId: String(profile.id),
-                },
-              },
-              create: {
+
+            await prisma.membership.create({
+              data: {
                 userId: user.id,
-                provider: "GITHUB",
-                providerId: String(profile.id),
-                accessToken,
+                organizationId: org.id,
+                role: "OWNER",
               },
-              update: { accessToken },
             });
           }
 
@@ -171,10 +115,6 @@ if (config.oauth.github.clientId && config.oauth.github.clientSecret) {
         }
       },
     ),
-  );
-} else {
-  logger.warn(
-    "GitHub OAuth is disabled because GITHUB_CLIENT_ID or GITHUB_CLIENT_SECRET is not set.",
   );
 }
 
